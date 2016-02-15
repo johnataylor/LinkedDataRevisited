@@ -1,0 +1,29 @@
+{
+  "siteName": {
+    "value": "TransformWebApplication"
+  },
+  "hostingPlanName": {
+    "value": "Default1"
+  },
+  "siteLocation": {
+    "value": "West US"
+  },
+  "sku": {
+    "value": "Standard"
+  },
+  "workerSize": {
+    "value": "0"
+  },
+  "siteMode": {
+    "value": "Limited"
+  },
+  "computeMode": {
+    "value": "0"
+  },
+  "subscriptionId": {
+    "value": "fa8b3229-dc0f-4633-a285-ad597076921d"
+  },
+  "resourceGroup": {
+    "value": "Default-Web-WestUS"
+  }
+}

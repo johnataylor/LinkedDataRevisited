@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TransformWebApplication", "TransformWebApplication\TransformWebApplication.csproj", "{FE5ECDF6-2CCF-455E-BC47-1C842430D802}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PublishScripts", "PublishScripts", "{5BF1C628-2613-4C09-893C-E5B3D3C570BE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scripts", "Scripts", "{1419724D-5DD1-4E3B-9382-B1CE3226F258}"
+	ProjectSection(SolutionItems) = preProject
+		PublishScripts\Scripts\Deploy-AzureResourceGroup.ps1 = PublishScripts\Scripts\Deploy-AzureResourceGroup.ps1
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{5DDACDD2-E24B-46DD-A557-3818DD864BA6}"
+	ProjectSection(SolutionItems) = preProject
+		PublishScripts\Templates\TransformWebApplication.json = PublishScripts\Templates\TransformWebApplication.json
+		PublishScripts\Templates\TransformWebApplication.param.dev.json = PublishScripts\Templates\TransformWebApplication.param.dev.json
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FE5ECDF6-2CCF-455E-BC47-1C842430D802}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE5ECDF6-2CCF-455E-BC47-1C842430D802}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE5ECDF6-2CCF-455E-BC47-1C842430D802}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE5ECDF6-2CCF-455E-BC47-1C842430D802}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1419724D-5DD1-4E3B-9382-B1CE3226F258} = {5BF1C628-2613-4C09-893C-E5B3D3C570BE}
+		{5DDACDD2-E24B-46DD-A557-3818DD864BA6} = {5BF1C628-2613-4C09-893C-E5B3D3C570BE}
+	EndGlobalSection
+EndGlobal
