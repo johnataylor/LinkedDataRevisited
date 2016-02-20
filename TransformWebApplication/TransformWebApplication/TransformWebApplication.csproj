@@ -120,6 +120,7 @@
     <Compile Include="Common.cs" />
     <Compile Include="JsonLdReader.cs" />
     <Compile Include="JsonLdWriter.cs" />
+    <Compile Include="MergeResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Startup.cs" />
   </ItemGroup>

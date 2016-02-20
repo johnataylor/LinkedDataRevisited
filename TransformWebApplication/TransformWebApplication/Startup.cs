@@ -3,7 +3,9 @@ using Newtonsoft.Json.Linq;
 using NuGet.Services.Metadata.Catalog.JsonLDIntegration;
 using Owin;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -12,6 +14,9 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Xsl;
 using VDS.RDF;
+using VDS.RDF.Parsing;
+using VDS.RDF.Query;
+using VDS.RDF.Query.Datasets;
 using XmlLegacy;
 
 [assembly: OwinStartup("TransformWebApplication", typeof(TransformWebApplication.Startup))]
@@ -53,12 +58,11 @@ namespace TransformWebApplication
                     return;
                 }
 
-                else
+                else if (context.Request.Uri.PathAndQuery.StartsWith("/fetch"))
                 {
                     string[] fields = context.Request.Uri.PathAndQuery.Split('/');
-                    string content = await LoadMetadata(fields[1], fields[2]);
+                    string content = await LoadMetadata(fields[2], fields[3]);
                     await context.Response.WriteAsync(content);
-                    //await context.Response.WriteAsync("what the hell");
                     return;
                 }
 
@@ -86,6 +90,9 @@ namespace TransformWebApplication
                     break;
                 case "merge":
                     await Merge(context);
+                    break;
+                case "eval":
+                    await Eval(context);
                     break;
             }
         }
@@ -128,15 +135,25 @@ namespace TransformWebApplication
             await context.Response.WriteAsync(jsonLd.ToString());
             context.Response.StatusCode = (int)HttpStatusCode.OK;
         }
+
         async Task Merge(IOwinContext context)
+        {
+            var result = await MergeImpl(context);
+
+            JObject json = Common.JsonFromGraph(result.Graph, result.JsonLdFrame, result.JsonLdContext);
+
+            await context.Response.WriteAsync(json.ToString());
+
+            context.Response.StatusCode = (int)HttpStatusCode.OK;
+        }
+
+        async Task<MergeResult> MergeImpl(IOwinContext context)
         {
             var content = new StreamContent(context.Request.Body);
             content.Headers.ContentType = MediaTypeHeaderValue.Parse(context.Request.ContentType);
 
-            IGraph merged = new Graph();
-
-            JObject jsonLdContext = null;
-            string jsonLdFrame = null;
+            var result = new MergeResult();
+            result.Graph = new Graph();
 
             var provider = await content.ReadAsMultipartAsync();
             foreach (var httpContent in provider.Contents)
@@ -155,29 +172,127 @@ namespace TransformWebApplication
 
                         JToken jsonLd = JToken.Parse(data);
 
-                        jsonLdContext = (JObject)jsonLd["@context"];
-                        jsonLdFrame = (string)jsonLd["@type"];
+                        if (result.JsonLdContext == null)
+                        {
+                            result.JsonLdContext = (JObject)jsonLd["@context"];
+                            result.JsonLdFrame = (string)jsonLd["@type"];
+                        }
 
                         IGraph graph = Common.GraphFromJson(jsonLd);
 
-                        merged.Merge(graph, false);
+                        result.Graph.Merge(graph, false);
                     }
                 }
             }
 
-            JObject json = Common.JsonFromGraph(merged, jsonLdFrame, jsonLdContext);
+            return result;
+        }
+
+        async Task Create(IOwinContext context)
+        {
+            await context.Response.WriteAsync("hello");
+
+            context.Response.StatusCode = (int)HttpStatusCode.OK;
+        }
+
+        async Task Eval(IOwinContext context)
+        {
+            string path = context.Request.Uri.PathAndQuery;
+
+            string[] fields = path.Split('/');
+            string gistId = fields[2];
+
+            var result = await MergeImpl(context);
+
+            var rules = await LoadRules(gistId);
+
+            EvalImpl(rules, result.Graph);
+
+            JObject json = Common.JsonFromGraph(result.Graph, result.JsonLdFrame, result.JsonLdContext);
 
             await context.Response.WriteAsync(json.ToString());
 
             context.Response.StatusCode = (int)HttpStatusCode.OK;
         }
 
+        void EvalImpl(List<string> rules, IGraph instance)
+        {
+            TripleStore store = new TripleStore();
+            store.Add(instance, true);
+
+            int before = 0;
+            int after = 0;
+
+            do
+            {
+                before = store.Triples.Count();
+
+                foreach (string rule in rules)
+                {
+                    EvaluateRule(store, rule);
+                }
+
+                after = store.Triples.Count();
+            }
+            while (after > before);
+        }
+
+        static object Execute(TripleStore store, string sparql)
+        {
+            InMemoryDataset ds = new InMemoryDataset(store);
+            ISparqlQueryProcessor processor = new LeviathanQueryProcessor(ds);
+            SparqlQueryParser sparqlparser = new SparqlQueryParser();
+            SparqlQuery query = sparqlparser.ParseFromString(sparql);
+            return processor.ProcessQuery(query);
+        }
+
+        static void EvaluateRule(TripleStore store, string rule)
+        {
+            IGraph graph = (IGraph)Execute(store, rule);
+            store.Add(graph, true);
+        }
+
+        async Task<List<string>> LoadRules(string gistId)
+        {
+            var obj = await LoadGistMetadata(gistId);
+
+            var result = new List<string>();
+
+            HttpClient client = new HttpClient();
+            foreach (JProperty property in obj["files"])
+            {
+                string rawUrl = (string)property.Value["raw_url"];
+
+                var content = await client.GetStringAsync(rawUrl);
+                result.Add(content);
+            }
+
+            return result;
+        }
+
         async Task<string> LoadMetadata(string gistId, string fileName)
+        {
+            var obj = await LoadGistMetadata(gistId);
+
+            var fileInfo = obj["files"][fileName];
+            if (fileInfo == null)
+            {
+                throw new Exception(string.Format("unable to find file {0}", fileName));
+            }
+
+            string rawUrl = (string)fileInfo["raw_url"];
+
+            HttpClient client = new HttpClient();
+            var content = await client.GetStringAsync(rawUrl);
+            return content;
+        }
+
+        async Task<JObject> LoadGistMetadata(string gistId)
         {
             const string gistsBaseAddress = "https://api.github.com/gists/";
 
             HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Xml2JsonLd", "1.0.0"));
+            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("TransformWebApplication", "1.0.0"));
 
             string address = string.Format("{0}{1}", gistsBaseAddress, gistId);
 
@@ -189,15 +304,7 @@ namespace TransformWebApplication
             string json = await response.Content.ReadAsStringAsync();
             var obj = JObject.Parse(json);
 
-            var fileInfo = obj["files"][fileName];
-            if (fileInfo == null)
-            {
-                throw new Exception(string.Format("unable to find file {0}", fileName));
-            }
-
-            string rawUrl = (string)fileInfo["raw_url"];
-            var content = await client.GetStringAsync(rawUrl);
-            return content;
+            return obj;
         }
     }
 }
